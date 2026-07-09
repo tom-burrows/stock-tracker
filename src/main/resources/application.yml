@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: stock-price-tracker
+  profiles:
+    active: dev

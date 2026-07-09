@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: price-ingestion-service
+  profiles:
+    active: dev
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: tom.burrows.priceingestionservice
+    producer:
+      bootstrap-servers: localhost:9092
+      acks: -1
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
