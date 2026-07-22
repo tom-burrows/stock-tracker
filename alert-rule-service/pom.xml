@@ -47,12 +47,72 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>tom.burrows</groupId>
+            <artifactId>commons</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
             <groupId>
                 org.springframework.boot
             </groupId>
             <artifactId>
                 spring-boot-starter
             </artifactId>
+        </dependency>
+        <dependency>
+            <groupId>
+                org.springframework.boot
+            </groupId>
+            <artifactId>
+                spring-boot-starter-web
+            </artifactId>
+        </dependency>
+        <dependency>
+            <groupId>
+                org.springframework.boot
+            </groupId>
+            <artifactId>
+                spring-boot-starter-data-jpa
+            </artifactId>
+        </dependency>
+        <dependency>
+            <groupId>
+                org.springframework.boot
+            </groupId>
+            <artifactId>
+                spring-boot-starter-validation
+            </artifactId>
+        </dependency>
+        <dependency>
+            <groupId>
+                org.springframework.boot
+            </groupId>
+            <artifactId>
+                spring-boot-starter-actuator
+            </artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Boot 4.x split FlywayAutoConfiguration out of spring-boot-autoconfigure into
+             its own module; flyway-core alone won't get migrations to run automatically. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
         </dependency>
 
         <dependency>
@@ -65,6 +125,47 @@
             <scope>
                 test
             </scope>
+        </dependency>
+        <!-- Boot 4.x split @WebMvcTest, @DataJpaTest, @AutoConfigureTestDatabase, and
+             TestRestTemplate out of spring-boot-starter-test into their own modules.
+             spring-boot-starter-test-classic restores all of them at once but also drags
+             in spring-boot-grpc-test/spring-boot-security-test without their corresponding
+             production modules, which breaks context loading for apps using neither
+             gRPC nor Security. Depending on the specific slices we need avoids that. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jdbc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-resttestclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

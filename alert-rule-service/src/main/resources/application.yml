@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: alert-rule-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/price_alerts
+    username: alerts
+    password: alerts
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
