@@ -50,6 +50,6 @@ Event-driven microservices system for stock price alerts. Services communicate v
 ### Stack
 
 - Spring Boot 4.1.0, Java 25
-- Spring Kafka (3.9.1 in root `dependencyManagement`)
+- Spring Kafka (version managed by the Spring Boot BOM, currently 4.1.0)
 - Lombok (annotation processor configured in root `pluginManagement`)
 - Postgres 16, Kafka 3.7.0 (KRaft)

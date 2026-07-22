@@ -10,7 +10,7 @@
         <groupId>tom.burrows</groupId>
         <artifactId>stock-prices</artifactId>
         <version>0.0.1-SNAPSHOT</version>
-<!--        <relativePath>../pom.xml</relativePath>-->
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <groupId>
         tom.burrows
@@ -44,9 +44,6 @@
         <java.version>
             25
         </java.version>
-        <kafka.version>
-            3.3.1
-        </kafka.version>
     </properties>
     <dependencies>
 
@@ -106,6 +103,17 @@
                 spring-kafka
             </artifactId>
         </dependency>
+        <!-- Boot 4.x splits Kafka autoconfiguration (KafkaProperties, KafkaAutoConfiguration)
+             out of spring-boot-autoconfigure into its own module; spring-kafka alone doesn't
+             pull it in. -->
+        <dependency>
+            <groupId>
+                org.springframework.boot
+            </groupId>
+            <artifactId>
+                spring-boot-kafka
+            </artifactId>
+        </dependency>
         <dependency>
             <groupId>
                 org.projectlombok
@@ -113,6 +121,23 @@
             <artifactId>
                 lombok
             </artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

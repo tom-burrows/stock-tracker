@@ -73,9 +73,9 @@
         <lombok.version>
             1.18.46
         </lombok.version>
-        <kafka.version>
-            3.9.1
-        </kafka.version>
+        <testcontainers.version>
+            1.21.4
+        </testcontainers.version>
     </properties>
     <!--
         Intentionally only spring-boot-starter-test here: this <dependencies> block is
@@ -115,16 +115,19 @@
                     provided
                 </scope>
             </dependency>
+            <!--
+                spring-kafka's version is already managed by the spring-boot-dependencies BOM
+                (inherited via spring-boot-starter-parent) at a version that matches this
+                project's Spring Boot 4.1.0 / Spring Framework 7 baseline. A prior explicit
+                override here pinned 3.9.1, a version that was never actually published,
+                breaking dependency resolution for every module that pulls in spring-kafka.
+            -->
             <dependency>
-                <groupId>
-                    org.springframework.kafka
-                </groupId>
-                <artifactId>
-                    spring-kafka
-                </artifactId>
-                <version>
-                    ${kafka.version}
-                </version>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
