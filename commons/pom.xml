@@ -45,15 +45,29 @@
             25
         </java.version>
     </properties>
+    <!--
+        commons is a plain library, not a runnable Spring Boot app: no spring-boot-starter,
+        no spring-boot-maven-plugin repackage goal, and deliberately no spring-kafka or
+        spring-boot-starter-data-jpa. It only carries the wire-format DTOs/enums shared
+        across services, so its own dependency footprint should stay minimal enough that
+        depending on it doesn't drag unrelated stacks (JPA, Kafka client, web) into
+        every consumer.
+    -->
     <dependencies>
-
-        <!-- Spring Libraries -->
         <dependency>
             <groupId>
-                org.springframework.boot
+                com.fasterxml.jackson.core
             </groupId>
             <artifactId>
-                spring-boot-starter
+                jackson-databind
+            </artifactId>
+        </dependency>
+        <dependency>
+            <groupId>
+                com.fasterxml.jackson.datatype
+            </groupId>
+            <artifactId>
+                jackson-datatype-jsr310
             </artifactId>
         </dependency>
         <dependency>
@@ -78,17 +92,5 @@
             </artifactId>
         </dependency>
     </dependencies>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>
-                    org.springframework.boot
-                </groupId>
-                <artifactId>
-                    spring-boot-maven-plugin
-                </artifactId>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>
