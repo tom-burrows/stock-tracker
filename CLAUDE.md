@@ -34,11 +34,13 @@ Event-driven microservices system for stock price alerts. Services communicate v
 
 | Module | Role |
 |---|---|
-| `price-ingestion-service` | Ingests price data; publishes `Event` messages to Kafka. Only service with a Dockerfile so far. |
-| `alert-rule-service` | Manages user-defined alert rules (stub). |
-| `alert-evaluation-service` | Consumes prices and evaluates them against rules (stub). |
-| `notification-service` | Sends notifications when alerts fire (stub). |
-| `commons` | Shared library — currently provides the `Event` model and Lombok. |
+| `price-ingestion-service` | Polls CoinGecko on a schedule and publishes `PriceTick` events to the `price-ticks` topic. Only service with a Dockerfile so far. |
+| `alert-rule-service` | Postgres-backed CRUD REST API (`/api/alert-rules`) for user-defined alert rules; owns the `alert_rules` schema via Flyway. |
+| `alert-evaluation-service` | Consumes `price-ticks`, evaluates against active rules with a cooldown window, publishes `AlertTriggeredEvent` to `alert-triggers` (not yet implemented). |
+| `notification-service` | Consumes `alert-triggers`, persists notifications, broadcasts via STOMP/WebSocket (not yet implemented). |
+| `commons` | Pure DTO/enum/constants library — `PriceTick`, `AlertTriggeredEvent`, `AlertCondition`, `KafkaTopics`. No Spring Boot app, no JPA, no Kafka client dependency of its own. |
+
+`AlertRule` is deliberately **not** in `commons` — `alert-rule-service` (writer) and `alert-evaluation-service` (reader) each own their own JPA mapping to the same physical `alert_rules` table, so the two services stay independently deployable.
 
 ### Key wiring details
 
@@ -46,6 +48,7 @@ Event-driven microservices system for stock price alerts. Services communicate v
 - **commons dependency**: `commons` is a local Maven artifact (`tom.burrows:commons:0.0.1-SNAPSHOT`). It must be built (or installed to `~/.m2`) before modules that depend on it. The `-am` flag handles this automatically.
 - **Docker context**: `docker-compose.yml` uses `context: .` (repo root) so all `COPY` paths in `price-ingestion-service/Dockerfile` are relative to the root, not the module directory.
 - **Parent POM**: Each module's `<parent>` must point to `tom.burrows:stock-prices` (the aggregator), not directly to `spring-boot-starter-parent`, for `pluginManagement`/`dependencyManagement` to propagate correctly.
+- **Root pom `<dependencies>` is inherited, not just aggregated**: anything listed there becomes a real dependency of every child module. Keep it minimal (currently just `spring-boot-starter-test`) — each module should declare its own starters explicitly, or you'll silently force things like `spring-boot-starter-web` onto modules that shouldn't have it (e.g. `commons`, `alert-evaluation-service`).
 
 ### Stack
 
@@ -53,3 +56,18 @@ Event-driven microservices system for stock price alerts. Services communicate v
 - Spring Kafka (version managed by the Spring Boot BOM, currently 4.1.0)
 - Lombok (annotation processor configured in root `pluginManagement`)
 - Postgres 16, Kafka 3.7.0 (KRaft)
+- Flyway for schema management on services that own a table (`alert-rule-service`, and `notification-service` once implemented) — Hibernate `ddl-auto` is set to `validate`, never `update`
+- Testcontainers 1.21.4 for integration tests (real Kafka + Postgres, not mocks/H2)
+
+## Gotchas — Spring Boot 4.1.0 module splitting
+
+Boot 4.1 split `spring-boot-autoconfigure` and `spring-boot-starter-test` into many feature-specific artifacts. A starter being on the classpath no longer guarantees its autoconfiguration fires — a second, non-obvious module is often needed too. These cost real debugging time to find; check this list before assuming something is a code bug.
+
+- **`spring-kafka` alone does not autoconfigure anything.** `KafkaProperties`/`KafkaAutoConfiguration` live in `org.springframework.boot:spring-boot-kafka`. Without it there's no autoconfigured `KafkaTemplate`/`KafkaAdmin`/consumer factory at all — not a wrong-type issue, a missing bean entirely. Every module that uses `spring-kafka` needs this too.
+- **`flyway-core` alone does not run migrations.** `FlywayAutoConfiguration` lives in `org.springframework.boot:spring-boot-flyway`. Add it explicitly on every service that owns Flyway-managed schema.
+- **Boot's autoconfigured `KafkaTemplate` bean is wildcard-typed** (`KafkaTemplate<?, ?>`), so it won't satisfy constructor injection of a concretely-typed `KafkaTemplate<String, MyType>`. Build your own `ProducerFactory<String, MyType>` + `KafkaTemplate<String, MyType>` from the autoconfigured `KafkaProperties` instead (see `price-ingestion-service`'s `KafkaProducerConfig`).
+- **Do not use `spring-boot-starter-test-classic`** (the "restore old bundled test annotations" umbrella) — it pulls in `spring-boot-grpc-test` and `spring-boot-security-test` without their corresponding production modules, breaking context loading with `ClassNotFoundException`s on unrelated classes (`SecurityAutoConfiguration`, `GrpcServerStartedEvent`) even in apps using neither gRPC nor Security. Depend on the specific granular test-slice modules instead: `spring-boot-webmvc-test` (`@WebMvcTest`, package `org.springframework.boot.webmvc.test.autoconfigure`), `spring-boot-data-jpa-test` (`@DataJpaTest`, package `org.springframework.boot.data.jpa.test.autoconfigure`), `spring-boot-jdbc-test` (`@AutoConfigureTestDatabase`, package `org.springframework.boot.jdbc.test.autoconfigure`), `spring-boot-resttestclient` + `spring-boot-restclient` (`TestRestTemplate`, package `org.springframework.boot.resttestclient`).
+- **`@SpringBootTest(webEnvironment = RANDOM_PORT)` no longer auto-registers a `TestRestTemplate` bean.** Add `@AutoConfigureTestRestTemplate` (`org.springframework.boot.resttestclient.autoconfigure`) on the test class explicitly.
+- **Boot 4.1's autoconfigured Jackson `ObjectMapper` bean is Jackson 3** (`tools.jackson.databind.ObjectMapper`), not the Jackson 2 `com.fasterxml.jackson.databind.ObjectMapper` used elsewhere in this codebase (`commons`' DTOs, most test code). `commons` deliberately keeps a direct Jackson 2 dependency for its own standalone round-trip tests, and Spring Kafka's `JsonSerializer`/`JsonDeserializer` default to constructing their own Jackson 2 `ObjectMapper` internally, so the Kafka pipeline is unaffected. The gap only bites in tests that `@Autowire` Spring's own `ObjectMapper` bean expecting the Jackson 2 type (e.g. `@WebMvcTest` controller tests) — it'll fail to autowire since the bean is a different class entirely. Fix: construct `new ObjectMapper()` locally in the test instead of autowiring.
+- **Maven Surefire's default include pattern does not match `*IT.java`** (that's Failsafe's convention; this project has no Failsafe plugin configured). A test class named e.g. `FooRepositoryIT` silently never runs under `./mvnw test`/`package`. Name integration test classes `*IntegrationTest` or `*Test`.
+- **Testcontainers 1.20.4 cannot talk to recent Docker Desktop versions** (confirmed against 4.61.0 / API 1.53) — container-based tests fail at startup with a `BadRequestException`/empty-body 400 from the daemon. The root pom pins the Testcontainers BOM to 1.21.4 for this reason; don't downgrade it.
