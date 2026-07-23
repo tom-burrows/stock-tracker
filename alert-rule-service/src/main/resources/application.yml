@@ -11,6 +11,18 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    # alert-rule-service and notification-service share the price_alerts database (each owns
+    # its own table). Flyway's history table is scoped per database schema, not per service, so
+    # without separate table names here both services' "V1__..." migrations collide on version 1
+    # in the same flyway_schema_history table, and one starts failing checksum validation against
+    # the other's migration.
+    table: flyway_schema_history_alert_rule_service
+    # Whichever of these two services starts second finds the schema non-empty (the other's
+    # table already exists) with no history table of its own yet — Flyway refuses to proceed
+    # without an explicit baseline in that case. baseline-version 0 (below any real migration)
+    # means this only seeds an empty baseline marker, it never causes V1 itself to be skipped.
+    baseline-on-migrate: true
+    baseline-version: 0
 
 management:
   endpoints:

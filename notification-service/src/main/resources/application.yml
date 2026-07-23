@@ -11,6 +11,13 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    # See alert-rule-service's application.yml for why this needs its own history table name and
+    # baseline settings: both services share the price_alerts database, and Flyway's history
+    # table is scoped per schema, not per service, so without these each service's "V1__..."
+    # migration collides with (or is blocked by) the other's.
+    table: flyway_schema_history_notification_service
+    baseline-on-migrate: true
+    baseline-version: 0
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
