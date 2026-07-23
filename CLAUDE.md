@@ -19,6 +19,9 @@ This is a Maven multi-module project. All commands should be run from the repo r
 # Run tests for a single module
 ./mvnw -pl price-ingestion-service test
 
+# First time only: create the local env file docker-compose.yml reads Postgres credentials from
+cp .env.example .env
+
 # Start infrastructure (Kafka + Postgres) and the price-ingestion-service container
 docker compose up
 
@@ -50,6 +53,7 @@ Event-driven microservices system for stock price alerts. Services communicate v
 - **Parent POM**: Each module's `<parent>` must point to `tom.burrows:stock-prices` (the aggregator), not directly to `spring-boot-starter-parent`, for `pluginManagement`/`dependencyManagement` to propagate correctly.
 - **Dockerfile dependency pre-fetch**: `price-ingestion-service/Dockerfile` copies only POMs before running `mvn -pl price-ingestion-service -am dependency:go-offline` for layer caching. This can fail against reactor-internal dependencies (like `commons`) if no source exists yet to satisfy the reactor — if you hit this, copy module source before `go-offline`/`package`, accepting a less optimal cache layer (see `notes/debugging/docker-building-troubleshooting.md`).
 - **Root pom `<dependencies>` is inherited, not just aggregated**: anything listed there becomes a real dependency of every child module. Keep it minimal (currently just `spring-boot-starter-test`) — each module should declare its own starters explicitly, or you'll silently force things like `spring-boot-starter-web` onto modules that shouldn't have it (e.g. `commons`, `alert-evaluation-service`).
+- **Postgres credentials**: sourced from `.env` (gitignored, copy from `.env.example`) — `docker-compose.yml` auto-loads it for `${POSTGRES_USER}`/`${POSTGRES_PASSWORD}`/`${POSTGRES_DB}` substitution. Each service's own `application.yml` reads the same var names via `${POSTGRES_USER:alerts}`-style placeholders (defaulting to the same local dev values) for non-Docker runs, so the two paths stay in sync without duplicating literal credentials.
 
 ### Stack
 

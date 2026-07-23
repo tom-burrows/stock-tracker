@@ -32,13 +32,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: alerts
-      POSTGRES_PASSWORD: alerts
-      POSTGRES_DB: price_alerts
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U alerts"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -62,9 +62,9 @@ services:
     ports:
       - "8081:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/price_alerts
-      SPRING_DATASOURCE_USERNAME: alerts
-      SPRING_DATASOURCE_PASSWORD: alerts
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,9 +84,9 @@ services:
     container_name: alert-evaluation-service
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/price_alerts
-      SPRING_DATASOURCE_USERNAME: alerts
-      SPRING_DATASOURCE_PASSWORD: alerts
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       kafka:
         condition: service_healthy
@@ -102,9 +102,9 @@ services:
       - "8082:8080"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/price_alerts
-      SPRING_DATASOURCE_USERNAME: alerts
-      SPRING_DATASOURCE_PASSWORD: alerts
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       kafka:
         condition: service_healthy

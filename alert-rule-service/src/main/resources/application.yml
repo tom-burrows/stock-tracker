@@ -2,9 +2,9 @@ spring:
   application:
     name: alert-rule-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/price_alerts
-    username: alerts
-    password: alerts
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:price_alerts}
+    username: ${POSTGRES_USER:alerts}
+    password: ${POSTGRES_PASSWORD:alerts}
   jpa:
     hibernate:
       ddl-auto: validate
