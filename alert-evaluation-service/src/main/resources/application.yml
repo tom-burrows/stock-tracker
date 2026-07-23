@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: alert-evaluation-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/price_alerts
+    username: alerts
+    password: alerts
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  # Schema is owned by alert-rule-service's Flyway migration; this service only reads/updates
+  # the alert_rules table, it never runs migrations against it.
+  flyway:
+    enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: alert-evaluation-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: tom.burrows.commons.events
+        spring.json.value.default.type: tom.burrows.commons.events.PriceTick
+        spring.json.use.type.headers: false
+    producer:
+      acks: -1
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+evaluation:
+  cooldown: 15m
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
