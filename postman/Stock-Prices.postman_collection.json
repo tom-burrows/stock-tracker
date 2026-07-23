@@ -1,0 +1,234 @@
+{
+	"info": {
+		"_postman_id": "8e2f6c1a-4b3d-4a2e-9c7a-6f1d2b3a5c9e",
+		"name": "Stock Prices",
+		"description": "REST endpoints for the price-alert system: alert-rule-service (CRUD for alert rules) and notification-service (read-only notification history + STOMP broadcast, not covered here since Postman doesn't speak STOMP). price-ingestion-service and alert-evaluation-service expose no REST API — they're Kafka-only.\n\nRun against a local `docker compose up` stack. See CLAUDE.md for build/run instructions.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "0"
+	},
+	"item": [
+		{
+			"name": "alert-rule-service",
+			"item": [
+				{
+					"name": "Create Alert Rule",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const json = pm.response.json();",
+									"if (json.id) {",
+									"    pm.collectionVariables.set(\"ruleId\", json.id);",
+									"}",
+									"pm.test(\"Status code is 201\", () => pm.response.to.have.status(201));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": {{userId}},\n    \"symbol\": \"BTC\",\n    \"condition\": \"PRICE_ABOVE\",\n    \"threshold\": 1\n}"
+						},
+						"url": {
+							"raw": "{{alertRuleBaseUrl}}/api/alert-rules",
+							"host": [
+								"{{alertRuleBaseUrl}}"
+							],
+							"path": [
+								"api",
+								"alert-rules"
+							]
+						},
+						"description": "Creates an active alert rule with no cooldown yet applied. condition is one of PRICE_ABOVE / PRICE_BELOW. Sets the collectionVariable `ruleId` from the response for use by the requests below.\n\nA threshold of 1 for a PRICE_ABOVE BTC rule will fire on the very next price tick (real BTC price is always above 1), handy for end-to-end testing."
+					},
+					"response": []
+				},
+				{
+					"name": "List Alert Rules by User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{alertRuleBaseUrl}}/api/alert-rules?userId={{userId}}",
+							"host": [
+								"{{alertRuleBaseUrl}}"
+							],
+							"path": [
+								"api",
+								"alert-rules"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Alert Rule Active",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{alertRuleBaseUrl}}/api/alert-rules/{{ruleId}}/toggle-active",
+							"host": [
+								"{{alertRuleBaseUrl}}"
+							],
+							"path": [
+								"api",
+								"alert-rules",
+								"{{ruleId}}",
+								"toggle-active"
+							]
+						},
+						"description": "Flips the `active` flag. Unrelated to the evaluation cooldown, which is purely time-based (lastTriggeredAt + 15m by default) and never touches this flag."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Alert Rule",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{alertRuleBaseUrl}}/api/alert-rules/{{ruleId}}",
+							"host": [
+								"{{alertRuleBaseUrl}}"
+							],
+							"path": [
+								"api",
+								"alert-rules",
+								"{{ruleId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{alertRuleBaseUrl}}/actuator/health",
+							"host": [
+								"{{alertRuleBaseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "notification-service",
+			"item": [
+				{
+					"name": "List Notifications by User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{notificationBaseUrl}}/api/notifications?userId={{userId}}",
+							"host": [
+								"{{notificationBaseUrl}}"
+							],
+							"path": [
+								"api",
+								"notifications"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								}
+							]
+						},
+						"description": "Read-only history, ordered newest first. Rows only appear once alert-evaluation-service has actually fired a rule for this user (see the Create Alert Rule request in the alert-rule-service folder, and give it ~45s for the next price tick to land).\n\nFor the live push side of this service, see the \"STOMP Broadcast\" WebSocket request below."
+					},
+					"response": []
+				},
+				{
+					"name": "STOMP Broadcast (WebSocket)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{notificationWsUrl}}/ws",
+							"host": [
+								"{{notificationWsUrl}}"
+							],
+							"path": [
+								"ws"
+							]
+						},
+						"description": "Postman's collection JSON format doesn't reliably round-trip a WebSocket request's message history on import (it's a newer, less formalized feature than HTTP requests), so this may open as a plain request in your client. If so: right-click this request -> \"Edit\" -> change the request type to WebSocket Request (or just create a new WebSocket Request and paste in this URL: ws://localhost:8082/ws).\n\nThis endpoint is registered with SockJS fallback (see WebSocketConfig), but Spring's SockJS handler also accepts a direct raw WebSocket upgrade at the bare endpoint path (no /info negotiation needed) - which is exactly what connecting straight to ws://localhost:8082/ws does. Once connected, send these two raw STOMP frames in order, each as a separate message, EXACTLY as shown including the blank line and the trailing NUL byte (STOMP frames are NUL-terminated, not newline-terminated - if your Postman version's WebSocket composer won't let you type \\u0000, try its \"hex\"/raw mode and append byte 00, or use a Node/wscat/websocat client instead):\n\n1) CONNECT\\naccept-version:1.2\\nhost:localhost\\n\\n\\u0000\n\n2) SUBSCRIBE\\nid:0\\ndestination:/topic/notifications\\n\\n\\u0000\n\nAfter step 1 you should receive a CONNECTED frame back. After step 2, trigger a notification (run \"Create Alert Rule\" in the alert-rule-service folder, then wait ~45s for the next price tick) and watch this connection for an incoming MESSAGE frame containing the NotificationPayload JSON."
+					},
+					"response": []
+				},
+				{
+					"name": "Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{notificationBaseUrl}}/actuator/health",
+							"host": [
+								"{{notificationBaseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "alertRuleBaseUrl",
+			"value": "http://localhost:8081",
+			"type": "string"
+		},
+		{
+			"key": "notificationBaseUrl",
+			"value": "http://localhost:8082",
+			"type": "string"
+		},
+		{
+			"key": "notificationWsUrl",
+			"value": "ws://localhost:8082",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "ruleId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
