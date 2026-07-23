@@ -11,12 +11,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -66,6 +69,9 @@ class AlertEvaluationIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private KafkaListenerEndpointRegistry registry;
+
     private KafkaTemplate<String, PriceTick> priceTickKafkaTemplate;
     private Consumer<String, AlertTriggeredEvent> alertTriggersConsumer;
 
@@ -102,6 +108,18 @@ class AlertEvaluationIntegrationTest {
         consumerProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         alertTriggersConsumer = new DefaultKafkaConsumerFactory<String, AlertTriggeredEvent>(consumerProps).createConsumer();
         alertTriggersConsumer.subscribe(List.of(KafkaTopics.ALERT_TRIGGERS));
+
+        // PriceTickListener's consumer group uses the default auto-offset-reset=latest (as
+        // production does). Without waiting for it to actually join the group and get its
+        // partition assigned first, publishing here races the listener's startup: if the
+        // tick lands before the listener's initial offset position is resolved, "latest"
+        // skips right past it and the test flakes intermittently. Only 1 partition is expected
+        // here (not the 3 price-ingestion-service's own KafkaTopicConfig creates in prod) since
+        // this isolated test's throwaway Kafka container auto-creates the topic on first use
+        // with the broker default of 1 partition — no NewTopic bean for price-ticks exists in
+        // this service's own context.
+        MessageListenerContainer container = registry.getListenerContainer("price-tick-listener");
+        ContainerTestUtils.waitForAssignment(container, 1);
 
         priceTickKafkaTemplate.send(KafkaTopics.PRICE_TICKS, "BTC",
                 new PriceTick("BTC", new BigDecimal("65000.00"), "usd", Instant.now()));

@@ -93,6 +93,30 @@ services:
       alert-rule-service:
         condition: service_healthy
 
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/price_alerts
+      SPRING_DATASOURCE_USERNAME: alerts
+      SPRING_DATASOURCE_PASSWORD: alerts
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # Optional but genuinely useful while developing — a UI to see topics/messages
   kafka-ui:
     image: provectuslabs/kafka-ui:latest

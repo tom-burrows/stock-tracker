@@ -15,7 +15,7 @@ public class PriceTickListener {
         this.evaluationService = evaluationService;
     }
 
-    @KafkaListener(topics = KafkaTopics.PRICE_TICKS, groupId = "alert-evaluation-service")
+    @KafkaListener(id = "price-tick-listener", topics = KafkaTopics.PRICE_TICKS, groupId = "alert-evaluation-service")
     public void listen(PriceTick tick) {
         evaluationService.evaluate(tick);
     }
