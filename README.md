@@ -16,12 +16,11 @@ as the initial data source, with the pipeline designed to support other price fe
 2. **`alert-rule-service`** exposes a REST API (`/api/alert-rules`) so users can
    create, list, toggle, and delete price alert rules (e.g. "notify me when BTC
    goes above $70,000"), backed by Postgres.
-3. **`alert-evaluation-service`** *(not yet implemented)* will consume `price-ticks`,
-   check each tick against active alert rules with a cooldown window, and publish
-   `AlertTriggeredEvent`s to the `alert-triggers` topic.
-4. **`notification-service`** *(not yet implemented)* will consume `alert-triggers`,
-   persist notifications, and broadcast them to connected clients over
-   STOMP/WebSocket.
+3. **`alert-evaluation-service`** consumes `price-ticks`, checks each tick against
+   active alert rules with a cooldown window, and publishes `AlertTriggeredEvent`s
+   to the `alert-triggers` topic.
+4. **`notification-service`** consumes `alert-triggers`, persists notifications, and
+   broadcasts them to connected clients over STOMP/WebSocket.
 
 ### Modules
 
@@ -29,8 +28,8 @@ as the initial data source, with the pipeline designed to support other price fe
 |---|---|
 | `price-ingestion-service` | Polls CoinGecko and publishes `PriceTick` events. |
 | `alert-rule-service` | Postgres-backed CRUD API for user alert rules. |
-| `alert-evaluation-service` | Evaluates price ticks against rules and raises triggered alerts (not yet implemented). |
-| `notification-service` | Delivers triggered alerts to users in real time (not yet implemented). |
+| `alert-evaluation-service` | Evaluates price ticks against rules and raises triggered alerts. |
+| `notification-service` | Delivers triggered alerts to users in real time. |
 | `commons` | Shared DTOs/enums/constants (`PriceTick`, `AlertTriggeredEvent`, `AlertCondition`, `KafkaTopics`). |
 
 ### Stack
@@ -47,7 +46,8 @@ as the initial data source, with the pipeline designed to support other price fe
 # Build all modules
 ./mvnw package
 
-# Start Kafka + Postgres + price-ingestion-service
+# Start Kafka + Postgres + all four services (price-ingestion-service,
+# alert-rule-service, alert-evaluation-service, notification-service) + kafka-ui
 docker compose up
 ```
 

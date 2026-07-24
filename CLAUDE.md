@@ -22,14 +22,15 @@ This is a Maven multi-module project. All commands should be run from the repo r
 # First time only: create the local env file docker-compose.yml reads Postgres credentials from
 cp .env.example .env
 
-# Start infrastructure (Kafka + Postgres) and the price-ingestion-service container
+# Start infrastructure (Kafka + Postgres) and all four services
+# (price-ingestion-service, alert-rule-service, alert-evaluation-service, notification-service) plus kafka-ui
 docker compose up
 
 # Build a Docker image with full output (useful for diagnosing Maven errors inside Docker)
 docker compose build --no-cache --progress=plain price-ingestion-service 2>&1 | tee build.log
 ```
 
-kafka-ui is available at http://localhost:8090 when the stack is running.
+kafka-ui is available at http://localhost:8090 when the stack is running. A Postman collection (`postman/Stock-Prices.postman_collection.json`) covers `alert-rule-service` CRUD and `notification-service` (list + STOMP broadcast) for manual testing.
 
 ## Architecture
 
@@ -37,10 +38,10 @@ Event-driven microservices system for stock price alerts. Services communicate v
 
 | Module | Role |
 |---|---|
-| `price-ingestion-service` | Polls CoinGecko on a schedule and publishes `PriceTick` events to the `price-ticks` topic. Only service with a Dockerfile so far. |
+| `price-ingestion-service` | Polls CoinGecko on a schedule and publishes `PriceTick` events to the `price-ticks` topic. |
 | `alert-rule-service` | Postgres-backed CRUD REST API (`/api/alert-rules`) for user-defined alert rules; owns the `alert_rules` schema via Flyway. |
-| `alert-evaluation-service` | Consumes `price-ticks`, evaluates against active rules with a cooldown window, publishes `AlertTriggeredEvent` to `alert-triggers` (not yet implemented). |
-| `notification-service` | Consumes `alert-triggers`, persists notifications, broadcasts via STOMP/WebSocket (not yet implemented). |
+| `alert-evaluation-service` | Consumes `price-ticks` (`PriceTickListener`), evaluates `PRICE_ABOVE`/`PRICE_BELOW` rules with a configurable cooldown (`EvaluationProperties`, default 15m), publishes `AlertTriggeredEvent` to `alert-triggers`. |
+| `notification-service` | Consumes `alert-triggers`, persists notifications (Flyway-managed `notifications` table), exposes `GET /api/notifications?userId=`, broadcasts via STOMP/WebSocket on `/topic/notifications`. |
 | `commons` | Pure DTO/enum/constants library — `PriceTick`, `AlertTriggeredEvent`, `AlertCondition`, `KafkaTopics`. No Spring Boot app, no JPA, no Kafka client dependency of its own. |
 
 `AlertRule` is deliberately **not** in `commons` — `alert-rule-service` (writer) and `alert-evaluation-service` (reader) each own their own JPA mapping to the same physical `alert_rules` table, so the two services stay independently deployable.
@@ -55,6 +56,7 @@ Event-driven microservices system for stock price alerts. Services communicate v
 - **Root pom `<dependencies>` is inherited, not just aggregated**: anything listed there becomes a real dependency of every child module. Keep it minimal (currently just `spring-boot-starter-test`) — each module should declare its own starters explicitly, or you'll silently force things like `spring-boot-starter-web` onto modules that shouldn't have it (e.g. `commons`, `alert-evaluation-service`).
 - **Postgres credentials**: sourced from `.env` (gitignored, copy from `.env.example`) — `docker-compose.yml` auto-loads it for `${POSTGRES_USER}`/`${POSTGRES_PASSWORD}`/`${POSTGRES_DB}` substitution. Each service's own `application.yml` reads the same var names via `${POSTGRES_USER:alerts}`-style placeholders (defaulting to the same local dev values) for non-Docker runs, so the two paths stay in sync without duplicating literal credentials.
 - **Flyway on a shared database**: `alert-rule-service` and `notification-service` both own Flyway migrations against the *same* `price_alerts` database (each owns a different table), and both happen to be named `V1__...`. Flyway's schema-history bookkeeping is scoped per database schema, not per service, so without `spring.flyway.table` set to a distinct name per service, the second one to start finds the other's "version 1" already recorded and fails checksum validation against its own different migration. A distinct table name alone isn't sufficient either — Flyway also refuses to touch a schema it finds non-empty (the other service's table already exists) unless `baseline-on-migrate: true` is set; `baseline-version: 0` (below any real migration) keeps that baseline from accidentally skipping the service's own real V1. This only ever surfaces when both services share one real (or real-shaped, e.g. `docker compose up`) database — the per-service Testcontainers integration tests each get a fully isolated database and can't catch it.
+- **`frontend/`**: currently contains only `frontend/plan.md`, a design doc for a not-yet-built Vite + React + TypeScript SPA. It's deliberately kept outside the Maven reactor (not in root `pom.xml` `<modules>`), calls `alert-rule-service` (`:8081`) and `notification-service` (`:8082`) directly with no gateway, and will run via `npm run dev` rather than being containerized. Note the plan and code currently disagree on one point: the plan calls for dropping `.withSockJS()` from `notification-service`'s `WebSocketConfig` in favor of plain STOMP-over-WS, but that change hasn't been made — the endpoint still uses SockJS.
 
 ### Stack
 
@@ -62,7 +64,7 @@ Event-driven microservices system for stock price alerts. Services communicate v
 - Spring Kafka (version managed by the Spring Boot BOM, currently 4.1.0)
 - Lombok (annotation processor configured in root `pluginManagement`)
 - Postgres 16, Kafka 3.7.0 (KRaft)
-- Flyway for schema management on services that own a table (`alert-rule-service`, and `notification-service` once implemented) — Hibernate `ddl-auto` is set to `validate`, never `update`
+- Flyway for schema management on services that own a table (`alert-rule-service`, `notification-service`) — Hibernate `ddl-auto` is set to `validate`, never `update`
 - Testcontainers 1.21.4 for integration tests (real Kafka + Postgres, not mocks/H2)
 
 ## Gotchas — Spring Boot 4.1.0 module splitting
