@@ -1,4 +1,3 @@
-HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -36,8 +35,12 @@ build/
 ### Files ###
 *.log
 
+## Local AI Stuff ##
+.pastwork/
+
 ### Environment ###
 .env*
+!.env.example
 
 ### macOS ###
 .DS_Store
