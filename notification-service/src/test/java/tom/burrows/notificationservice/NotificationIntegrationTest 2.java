@@ -26,6 +26,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
+import org.springframework.web.socket.sockjs.client.SockJsClient;
+import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -38,6 +40,7 @@ import tom.burrows.notificationservice.dto.NotificationPayload;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -92,7 +95,8 @@ class NotificationIntegrationTest {
 
     @Test
     void alertTriggeredEventIsPersistedAndBroadcastOverStomp() throws Exception {
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        WebSocketStompClient stompClient = new WebSocketStompClient(
+                new SockJsClient(List.of(new WebSocketTransport(new StandardWebSocketClient()))));
         MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
         // Without this, NotificationPayload's Instant fields fail to deserialize and
         // DefaultStompSession swallows the exception via the default no-op
@@ -102,7 +106,7 @@ class NotificationIntegrationTest {
 
         BlockingQueue<NotificationPayload> received = new LinkedBlockingQueue<>();
         StompSession session = stompClient
-                .connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {
+                .connectAsync("http://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {
                 })
                 .get(10, TimeUnit.SECONDS);
         session.subscribe("/topic/notifications", new StompFrameHandler() {

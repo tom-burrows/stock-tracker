@@ -26,15 +26,68 @@ Key theme throughout: several decisions (API gateway, per-user WebSocket routing
 
 ## First implementation steps
 
-1. Create `frontend/` at the repo root (scaffold via `npx create-next-app` with TypeScript and the App Router).
-2. Save this plan as `frontend/plan.md` in the new directory, as requested, so it travels with the frontend code as a record of the architectural decisions behind it.
-3. Add `frontend/node_modules/` and `frontend/.next/` to `.gitignore`.
-4. Configure CORS on `notification-service` to allow the Next.js dev server's origin (default `http://localhost:3000`), for the WS handshake only.
-5. Remove `.withSockJS()` from `notification-service`'s `WebSocketConfig`, confirm existing tests still pass.
-6. Add Next.js API routes that proxy REST calls server-side to `alert-rule-service` and `notification-service`.
-7. Build the minimal UI: fetch/display alert rules via the Next.js `/api/...` proxy routes, and a notifications panel that fetches history via the proxied `GET /api/notifications?userId=1` and subscribes to `/topic/notifications` via `@stomp/stompjs` connected directly to `notification-service`, filtering to `userId === 1`.
+Steps 1–3 (scaffold `frontend/` via `create-next-app`, save this plan alongside it, confirm `.gitignore` covers `node_modules`/`.next`) are done — see the "Adding frontend files" / "Removing old frontend/..." commits. What follows is the fleshed-out plan for steps 4–7, written against the actual current code (`notification-service`'s `WebSocketConfig`, `NotificationController`, `AlertRuleController`, and their DTOs).
+
+### Step 4: CORS on `notification-service` for the WS handshake origin
+
+File: `notification-service/src/main/java/tom/burrows/notificationservice/websocket/WebSocketConfig.java`.
+
+Add `setAllowedOrigins("http://localhost:3000")` to the `/ws` endpoint registration. Without it, Spring's WebSocket handshake interceptor defaults to same-origin only and rejects the cross-origin handshake from the browser (`localhost:3000` → `localhost:8082`) outright — this is a hard requirement for the browser-to-`notification-service` WS connection to work at all, not a hardening nice-to-have. This is unrelated to Spring MVC's `@CrossOrigin`/`CorsConfigurationSource` (REST CORS) — nothing in this system needs that, since all REST traffic is proxied server-side through Next.js Route Handlers (decision 4) and never crosses origins in the browser.
+
+### Step 5: Drop SockJS in favor of plain STOMP-over-WS
+
+Same file, same endpoint registration, done together with step 4:
+
+```java
+// before
+registry.addEndpoint("/ws").withSockJS();
+// after
+registry.addEndpoint("/ws").setAllowedOrigins("http://localhost:3000");
+```
+
+This breaks `NotificationIntegrationTest` as currently written: it connects via `new WebSocketStompClient(new SockJsClient(List.of(new WebSocketTransport(new StandardWebSocketClient()))))` against `http://localhost:{port}/ws`. `SockJsClient` always issues a SockJS-protocol `GET /ws/info` probe before falling back to its `WebSocketTransport` — with `.withSockJS()` removed server-side that probe 404s and the test fails, even though raw WebSocket was already the only transport registered. I'll update the test in the same change to connect with a plain client instead:
+
+```java
+WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+...
+stompClient.connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {})
+```
+
+(note the `ws://` scheme instead of `http://` — no SockJS layer to negotiate the scheme for you anymore). Then run `./mvnw -pl notification-service test` to confirm `NotificationIntegrationTest`, `NotificationServiceTest`, and `NotificationControllerTest` all still pass.
+
+### Step 6: Next.js Route Handlers as the REST proxy
+
+Config, `frontend/.env.local` (gitignored via the existing `.env*` rule) and a committed `frontend/.env.example` documenting the same two vars:
+
+```
+ALERT_RULE_SERVICE_URL=http://localhost:8081
+NOTIFICATION_SERVICE_URL=http://localhost:8082
+```
+
+(mirrors the root `.env.example`/`.env` split already used for Postgres credentials; these defaults match `docker-compose.yml`'s host port mappings, so `npm run dev` works against `docker compose up` with zero configuration).
+
+A small shared helper, `frontend/lib/backend.ts`, exporting the two base URLs (read from `process.env`, falling back to the defaults above) plus a `proxyFetch(url, init)` wrapper that forwards the request and relays the upstream status code and JSON body — used four times below, so worth not repeating inline.
+
+Route Handlers to add, each a thin pass-through with no auth (per decision 4), preserving upstream status codes (201 from create, 204 from delete, 404 from `AlertRuleController`'s `AlertRuleNotFoundException` via `GlobalExceptionHandler`) so client code can branch on them:
+
+- `frontend/app/api/alert-rules/route.ts` — `GET` reads `userId` off `request.nextUrl.searchParams` and forwards to `${ALERT_RULE_SERVICE_URL}/api/alert-rules?userId=...`; `POST` forwards the JSON body (`{ userId, symbol, condition, threshold }`, matching `CreateAlertRuleRequest`) to the same path.
+- `frontend/app/api/alert-rules/[id]/route.ts` — `DELETE` forwards to `${ALERT_RULE_SERVICE_URL}/api/alert-rules/{id}`.
+- `frontend/app/api/alert-rules/[id]/toggle-active/route.ts` — `PATCH` forwards to `${ALERT_RULE_SERVICE_URL}/api/alert-rules/{id}/toggle-active`.
+- `frontend/app/api/notifications/route.ts` — `GET` reads `userId`, forwards to `${NOTIFICATION_SERVICE_URL}/api/notifications?userId=...`.
+
+### Step 7: Minimal UI
+
+Replace the `create-next-app` boilerplate in `frontend/app/page.tsx`. Split across Server/Client Components the way the App Router expects:
+
+- `frontend/app/page.tsx` (Server Component) — does the *initial* data fetch server-side, straight against the backend services via `lib/backend.ts`'s base URLs (not through the Route Handlers — those exist for the client's later mutations, and a server-to-own-server round trip on first load would be pure waste). Fetches `GET /api/alert-rules?userId=1` and `GET /api/notifications?userId=1` in parallel with `Promise.all`, passes both arrays as props into a client component.
+- `frontend/app/dashboard.tsx` (`"use client"`) — receives the initial rules/notifications as props and renders:
+  - A create-rule form (symbol text input, condition `<select>` with `PRICE_ABOVE`/`PRICE_BELOW`, threshold number input) that `POST`s to `/api/alert-rules` with `userId: 1` hardcoded (decision 5's placeholder convention — no auth yet) and prepends the response to local state.
+  - The rules list, each row with a toggle-active button (`PATCH /api/alert-rules/{id}/toggle-active`) and a delete button (`DELETE /api/alert-rules/{id}`), updating/removing that row in local state on success.
+  - A notifications panel seeded from the server-fetched history, opening a STOMP connection on mount (`useEffect`) *directly* to `notification-service` — not via the Next.js proxy, per decision 6 — using `@stomp/stompjs` (`brokerURL: process.env.NEXT_PUBLIC_NOTIFICATION_WS_URL`), subscribing to `/topic/notifications`, prepending incoming payloads to local state filtered to `userId === 1` client-side (decision 5), and disconnecting on unmount.
+- Add `@stomp/stompjs` as a dependency: `npm install @stomp/stompjs` in `frontend/`.
+- `NEXT_PUBLIC_NOTIFICATION_WS_URL` (must be `NEXT_PUBLIC_`-prefixed since it's read in the browser, unlike the two service URLs above) defaulting to `ws://localhost:8082/ws`, added to both `.env.local` and `.env.example`.
 
 ## Verification
 
-- `./mvnw -pl notification-service test` after removing SockJS, to confirm the existing STOMP/WebSocket integration test (`NotificationIntegrationTest`) still passes against the plain-WebSocket endpoint.
-- `docker compose up` to bring up the backend, then `cd frontend && npm run dev`, and manually verify in-browser: alert rules list loads via the Next.js REST proxy, and triggering an alert (e.g. via `alert-evaluation-service`'s flow) shows up live in the notifications panel without a page refresh, via a STOMP connection made directly from the browser to `notification-service`.
+- `./mvnw -pl notification-service test` after steps 4–5, to confirm `NotificationIntegrationTest` (updated per above) still passes against the plain-WebSocket endpoint, alongside the existing unit tests.
+- `docker compose up` to bring up the backend, then `cd frontend && npm install && npm run dev`: create a rule and confirm it appears via the REST proxy, toggle and delete it, then trigger an alert end-to-end (via `alert-evaluation-service`'s flow) and confirm it appears live in the notifications panel without a page refresh, over a STOMP connection made directly from the browser to `notification-service`.
