@@ -2,6 +2,7 @@ package tom.burrows.alertevaluationservice.producer;
 
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
 import tom.burrows.commons.events.AlertTriggeredEvent;
 import tom.burrows.commons.kafka.KafkaTopics;
 

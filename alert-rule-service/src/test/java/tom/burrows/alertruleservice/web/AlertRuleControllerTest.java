@@ -1,19 +1,5 @@
 package tom.burrows.alertruleservice.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tom.burrows.alertruleservice.domain.AlertRule;
-import tom.burrows.alertruleservice.dto.CreateAlertRuleRequest;
-import tom.burrows.alertruleservice.service.AlertRuleNotFoundException;
-import tom.burrows.alertruleservice.service.AlertRuleService;
-import tom.burrows.commons.domain.AlertCondition;
-
-import java.math.BigDecimal;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -22,6 +8,22 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import tom.burrows.alertruleservice.domain.AlertRule;
+import tom.burrows.alertruleservice.dto.CreateAlertRuleRequest;
+import tom.burrows.alertruleservice.service.AlertRuleNotFoundException;
+import tom.burrows.alertruleservice.service.AlertRuleService;
+import tom.burrows.commons.domain.AlertCondition;
 
 @WebMvcTest(AlertRuleController.class)
 class AlertRuleControllerTest {

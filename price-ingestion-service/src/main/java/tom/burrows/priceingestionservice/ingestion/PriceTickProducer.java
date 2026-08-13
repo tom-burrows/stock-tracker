@@ -2,6 +2,7 @@ package tom.burrows.priceingestionservice.ingestion;
 
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
 import tom.burrows.commons.events.PriceTick;
 import tom.burrows.commons.kafka.KafkaTopics;
 

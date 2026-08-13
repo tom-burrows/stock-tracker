@@ -1,17 +1,18 @@
 package tom.burrows.priceingestionservice.ingestion;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-import tom.burrows.commons.events.PriceTick;
-import tom.burrows.priceingestionservice.client.CoinGeckoClient;
-import tom.burrows.priceingestionservice.config.IngestionProperties;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import tom.burrows.commons.events.PriceTick;
+import tom.burrows.priceingestionservice.client.CoinGeckoClient;
+import tom.burrows.priceingestionservice.config.IngestionProperties;
 
 @Component
 public class PricePoller {

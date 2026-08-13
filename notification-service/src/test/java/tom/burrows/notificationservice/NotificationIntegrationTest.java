@@ -1,5 +1,16 @@
 package tom.burrows.notificationservice;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.AfterEach;
@@ -16,7 +27,6 @@ import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
@@ -30,21 +40,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
+
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import tom.burrows.commons.domain.AlertCondition;
 import tom.burrows.commons.events.AlertTriggeredEvent;
 import tom.burrows.commons.kafka.KafkaTopics;
 import tom.burrows.notificationservice.dto.NotificationPayload;
-
-import java.lang.reflect.Type;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 /**
  * Publishes an AlertTriggeredEvent via a real Kafka producer, then proves the full

@@ -1,5 +1,8 @@
 package tom.burrows.alertevaluationservice.domain;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,9 +12,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import tom.burrows.commons.domain.AlertCondition;
-
-import java.math.BigDecimal;
-import java.time.Instant;
 
 /**
  * Owns a read/update-only JPA mapping to the same physical alert_rules table that

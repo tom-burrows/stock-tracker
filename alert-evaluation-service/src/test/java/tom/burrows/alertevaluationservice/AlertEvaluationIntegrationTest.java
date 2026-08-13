@@ -1,5 +1,14 @@
 package tom.burrows.alertevaluationservice;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -17,8 +26,8 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.MessageListenerContainer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -28,18 +37,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
+
 import tom.burrows.commons.events.AlertTriggeredEvent;
 import tom.burrows.commons.events.PriceTick;
 import tom.burrows.commons.kafka.KafkaTopics;
-
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 /**
  * The alert_rules schema is owned by alert-rule-service's Flyway migration; this service
@@ -95,17 +96,17 @@ class AlertEvaluationIntegrationTest {
 
         Map<String, Object> producerProps = KafkaTestUtils.producerProps(KAFKA.getBootstrapServers());
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
         ProducerFactory<String, PriceTick> producerFactory = new DefaultKafkaProducerFactory<>(producerProps);
         priceTickKafkaTemplate = new KafkaTemplate<>(producerFactory);
 
-        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(KAFKA.getBootstrapServers(), "test-group", "true");
+        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(KAFKA.getBootstrapServers(), "test-group", true);
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "tom.burrows.commons.events");
-        consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, AlertTriggeredEvent.class.getName());
-        consumerProps.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
+        consumerProps.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "tom.burrows.commons.events");
+        consumerProps.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, AlertTriggeredEvent.class.getName());
+        consumerProps.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         alertTriggersConsumer = new DefaultKafkaConsumerFactory<String, AlertTriggeredEvent>(consumerProps).createConsumer();
         alertTriggersConsumer.subscribe(List.of(KafkaTopics.ALERT_TRIGGERS));
 

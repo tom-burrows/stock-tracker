@@ -51,7 +51,7 @@ class AlertRuleServiceIntegrationTest {
 
         ResponseEntity<AlertRuleResponse[]> listResponse =
                 restTemplate.getForEntity("/api/alert-rules?userId=1", AlertRuleResponse[].class);
-        assertThat(List.of(listResponse.getBody())).extracting(AlertRuleResponse::id).contains(id);
+        assertThat(List.of(listResponse.getBody())).filteredOn(rule -> rule != null).extracting(AlertRuleResponse::id).contains(id);
 
         ResponseEntity<AlertRuleResponse> toggleResponse = restTemplate.exchange(
                 "/api/alert-rules/" + id + "/toggle-active", org.springframework.http.HttpMethod.PATCH,

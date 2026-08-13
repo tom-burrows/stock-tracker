@@ -2,6 +2,7 @@ package tom.burrows.alertevaluationservice.consumer;
 
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+
 import tom.burrows.alertevaluationservice.service.AlertEvaluationService;
 import tom.burrows.commons.events.PriceTick;
 import tom.burrows.commons.kafka.KafkaTopics;

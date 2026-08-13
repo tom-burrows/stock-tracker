@@ -1,17 +1,18 @@
 package tom.burrows.alertevaluationservice.service;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import tom.burrows.alertevaluationservice.config.EvaluationProperties;
 import tom.burrows.alertevaluationservice.domain.AlertRule;
 import tom.burrows.alertevaluationservice.producer.AlertTriggeredProducer;
 import tom.burrows.alertevaluationservice.repository.AlertRuleRepository;
 import tom.burrows.commons.events.AlertTriggeredEvent;
 import tom.burrows.commons.events.PriceTick;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
 
 @Service
 public class AlertEvaluationService {
