@@ -2,6 +2,7 @@ package tom.burrows.commons.events;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+
 import tom.burrows.commons.domain.AlertCondition;
 
 public record AlertTriggeredEvent(
