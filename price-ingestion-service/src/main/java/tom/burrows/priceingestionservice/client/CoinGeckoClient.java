@@ -1,6 +1,7 @@
 package tom.burrows.priceingestionservice.client;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -10,6 +11,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+
+import tom.burrows.commons.dtos.Coin;
 
 @Component
 public class CoinGeckoClient {
@@ -37,6 +40,22 @@ public class CoinGeckoClient {
         } catch (RestClientException e) {
             log.warn("Failed to fetch prices from CoinGecko: {}", e.getMessage());
             return Map.of();
+        }
+    }
+
+    public Coin fetchAllCoins() {
+        try {
+            Coin body = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/coins/markets")
+                            .build())
+                    .retrieve()
+                    .body(Coin.class);
+                log.info("Test Success");
+            return body != null ? body : new Coin();
+        } catch (RestClientException e) {
+            log.warn("Failed to retrieve all coins: {}", e.getMessage());
+            return new Coin();
         }
     }
 }
