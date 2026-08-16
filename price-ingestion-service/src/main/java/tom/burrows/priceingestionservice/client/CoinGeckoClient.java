@@ -43,19 +43,25 @@ public class CoinGeckoClient {
         }
     }
 
-    public Coin fetchAllCoins() {
+    public ArrayList<Coin> fetchAllCoins(String currency) {
         try {
-            Coin body = restClient.get()
+            ArrayList<Coin> body = restClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/coins/markets")
-                            .build())
+                        .path("/coins/markets")
+                        .queryParam("vs_currencies", currency)
+                        .build())
                     .retrieve()
-                    .body(Coin.class);
-                log.info("Test Success");
-            return body != null ? body : new Coin();
+                    .body(new ParameterizedTypeReference<>() {} ); // Think the error is coming from here - only appeared when adding the @JsonAlias earlier
+                    // so worth double checking their all correct/used correctly...
+
+            if (body != null) {
+                return body;
+            } else {
+                return new ArrayList<Coin>();
+            }
         } catch (RestClientException e) {
             log.warn("Failed to retrieve all coins: {}", e.getMessage());
-            return new Coin();
+            return new ArrayList<Coin>();
         }
     }
 }
