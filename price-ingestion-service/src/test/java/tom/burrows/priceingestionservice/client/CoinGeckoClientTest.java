@@ -66,7 +66,7 @@ class CoinGeckoClientTest {
         server.expect(requestTo(BASE_URL + "/coins/markets?vs_currencies=usd"))
             .andRespond(withServerError());
         
-        List<Coin> response = client.fetchAllCoins(currency);
+        List<Coin> response = client.fetchMarketDataForAllCoins(currency);
 
         assertThat(response).isEmpty();
     }
@@ -129,12 +129,13 @@ class CoinGeckoClientTest {
                 MediaType.APPLICATION_JSON
             ));
 
-            ArrayList<Coin> coins = client.fetchAllCoins("usd");
+            ArrayList<Coin> coins = client.fetchMarketDataForAllCoins("usd");
 
             assertThat(coins).isNotEmpty();
             assertThat(coins.get(0).getSymbol()).isEqualTo("btc");
             assertThat(coins.get(0).getId()).isEqualTo("bitcoin");
             assertThat(coins.get(0).getCurrentPrice()).isEqualTo(77671);
+            assertThat(coins.get(0).getTotalSupply()).isEqualTo(20030843);
             server.verify();
     }
 }

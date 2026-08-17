@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 
 import lombok.Getter;
 import lombok.Setter;
+import tom.burrows.commons.utils.DoubleArrayDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 
 @Getter
@@ -57,8 +59,9 @@ public class Coin {
     Long atlChangePercent;
     @JsonAlias("atl_date")
     Date atlDate;
-    Long roi;
+    Long roi;    
     @JsonAlias("sparkline_in_7d")
+    @JsonDeserialize(using = DoubleArrayDeserializer.class)
     ArrayList<Double> sparkLine7d;
     @JsonAlias("price_change_percentage_1h_in_currency")
     Double priceChangePercentageInCurrency1h;

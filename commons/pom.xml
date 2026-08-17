@@ -54,6 +54,10 @@
         every consumer.
     -->
     <dependencies>
+        <!-- Jackson 2: used by commons' own round-trip tests (PriceTick/AlertTriggeredEvent)
+             and by Spring Kafka's JsonSerializer/JsonDeserializer, which construct their own
+             Jackson 2 ObjectMapper internally regardless of which Jackson major version Boot
+             autoconfigures elsewhere. -->
         <dependency>
             <groupId>
                 com.fasterxml.jackson.core
@@ -68,6 +72,18 @@
             </groupId>
             <artifactId>
                 jackson-datatype-jsr310
+            </artifactId>
+        </dependency>
+        <!-- Jackson 3: Boot 4.1's spring-boot-starter-web autoconfigures a Jackson 3
+             HttpMessageConverter for RestClient, so Coin's @JsonDeserialize(using = ...)
+             and DoubleArrayDeserializer must target Jackson 3's annotation/API package
+             (tools.jackson.*) to actually be picked up on that path. -->
+        <dependency>
+            <groupId>
+                tools.jackson.core
+            </groupId>
+            <artifactId>
+                jackson-databind
             </artifactId>
         </dependency>
         <dependency>

@@ -43,7 +43,7 @@ public class CoinGeckoClient {
         }
     }
 
-    public ArrayList<Coin> fetchAllCoins(String currency) {
+    public ArrayList<Coin> fetchMarketDataForAllCoins(String currency) {
         try {
             ArrayList<Coin> body = restClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -51,8 +51,7 @@ public class CoinGeckoClient {
                         .queryParam("vs_currencies", currency)
                         .build())
                     .retrieve()
-                    .body(new ParameterizedTypeReference<>() {} ); // Think the error is coming from here - only appeared when adding the @JsonAlias earlier
-                    // so worth double checking their all correct/used correctly...
+                    .body(new ParameterizedTypeReference<>() {} );
 
             if (body != null) {
                 return body;
